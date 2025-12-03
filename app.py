@@ -481,7 +481,7 @@ def add_book():
                 (isbn, title, author, cover_url, genre),
             )
             conn.commit()
-        except sqlite3.IntegrityError:
+        except (sqlite3.IntegrityError, psycopg2.IntegrityError):
             conn.close()
             return jsonify({"error": "This book is already in your library."}), 409
 
