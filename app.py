@@ -4,9 +4,12 @@ import os
 import requests
 import psycopg2
 import psycopg2.extras
+from datetime import timedelta
 
 app = Flask(__name__)
-app.secret_key = "wrwrwsrjwsoj394ew309i4[9"  # change this to anything!
+app.secret_key = "wrwrwsrjwsoj394ew309i4[9"
+
+app.permanent_session_lifetime = timedelta(days=30)
 
 DB_PATH = os.path.join("db", "books.db")
 
@@ -396,6 +399,7 @@ def login():
         conn.close()
 
         if user:
+            session.permanent = True
             session["user"] = user["username"]
             session["role"] = user["role"]
             return redirect(url_for("index"))
