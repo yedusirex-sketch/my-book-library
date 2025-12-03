@@ -2,70 +2,121 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify, s
 import sqlite3
 import os
 import requests
+import psycopg2
+import psycopg2.extras
 
 app = Flask(__name__)
 app.secret_key = "wrwrwsrjwsoj394ew309i4[9"  # change this to anything!
 
 DB_PATH = os.path.join("db", "books.db")
 
+# If DATABASE_URL is set (in Render), we'll use Postgres instead of SQLite
+DATABASE_URL = os.environ.get("DATABASE_URL")
+USE_POSTGRES = bool(DATABASE_URL)
 
-def init_db():
-    """Create / migrate DB schema."""
-    os.makedirs("db", exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+class PostgresConnection:
+    """
+    Small wrapper so Postgres behaves a bit like sqlite3.Connection:
+    - .execute(query, params) returns a cursor with fetchone/fetchall
+    - .commit()
+    - .close()
+    """
+    def __init__(self, dsn: str):
+        # Render Postgres generally requires SSL
+        self.conn = psycopg2.connect(dsn, sslmode="require")
 
-    # Base table (for brand-new DBs)
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS books (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            isbn TEXT UNIQUE,
-            title TEXT,
-            author TEXT,
-            cover_url TEXT,
-            genre TEXT,
-            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
+    def execute(self, query, params=()):
+        # Convert sqlite-style "?" placeholders to psycopg2-style "%s"
+        q = query.replace("?", "%s")
+        cur = self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(q, params)
+        return cur
 
-    # Safe "ALTER TABLE" for older DBs that might not have these columns yet
-    try:
-        c.execute("ALTER TABLE books ADD COLUMN cover_url TEXT")
-    except sqlite3.OperationalError:
-        pass
+    def commit(self):
+        self.conn.commit()
 
-    try:
-        c.execute("ALTER TABLE books ADD COLUMN genre TEXT")
-    except sqlite3.OperationalError:
-        pass
-
-    # Users table (unchanged)
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE,
-            password TEXT,
-            role TEXT CHECK( role IN ('admin', 'user') ) NOT NULL
-        )
-    """)
-    conn.commit()
-
-    # Default users
-    try:
-        c.execute("INSERT INTO users (username, password, role) VALUES ('admin', 'admin123', 'admin')")
-        c.execute("INSERT INTO users (username, password, role) VALUES ('user', 'user123', 'user')")
-        conn.commit()
-    except:
-        pass
-
-    conn.close()
+    def close(self):
+        self.conn.close()
 
 
 def get_db_connection():
     """Return a connection with row access by column name."""
+    if USE_POSTGRES:
+        return PostgresConnection(DATABASE_URL)
+
+    # Default: local SQLite (no env var set)
+    os.makedirs("db", exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def init_db():
+    """Create / migrate DB schema for either SQLite or Postgres."""
+    conn = get_db_connection()
+
+    if USE_POSTGRES:
+        # Postgres schema
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS books (
+                id SERIAL PRIMARY KEY,
+                isbn TEXT UNIQUE,
+                title TEXT,
+                author TEXT,
+                cover_url TEXT,
+                genre TEXT,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username TEXT UNIQUE,
+                password TEXT,
+                role TEXT CHECK (role IN ('admin','user')) NOT NULL
+            )
+        """)
+        conn.commit()
+    else:
+        # SQLite schema
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS books (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                isbn TEXT UNIQUE,
+                title TEXT,
+                author TEXT,
+                cover_url TEXT,
+                genre TEXT,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE,
+                password TEXT,
+                role TEXT CHECK( role IN ('admin','user') ) NOT NULL
+            )
+        """)
+        conn.commit()
+
+    # Default users (same SQL for both; placeholders are converted for Postgres)
+    try:
+        conn.execute(
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            ("admin", "admin123", "admin"),
+        )
+        conn.execute(
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            ("user", "user123", "user"),
+        )
+        conn.commit()
+    except Exception:
+        # Likely "unique constraint" once users already exist
+        pass
+
+    conn.close()
+
 
 def require_login(func):
     def wrapper(*args, **kwargs):
