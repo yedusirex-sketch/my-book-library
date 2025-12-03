@@ -382,6 +382,10 @@ input[type="password"]:focus {
     font-size: 0.8rem;
     font-weight: 600;
     color: #ffffff;
+    max-width: 90px;
+    text-align: center;
+    line-height: 1.1;
+    white-space: normal;
 }
 
 /* Colors per genre, using data-genre attribute */
@@ -536,15 +540,16 @@ input[type="password"]:focus {
 
 @media (max-width: 640px) {
     .actions-cell {
-        white-space: normal;      /* allow wrapping */
+        white-space: normal;  /* allow buttons to wrap if needed */
+        text-align: right;
     }
 
     .actions-cell .btn {
-        padding-inline: 0.6rem;   /* slightly smaller buttons */
-        margin-top: 0.25rem;
+        font-size: 0.75rem;
+        padding: 0.3rem 0.6rem;   /* smaller pills */
     }
 
     .actions-cell .btn + .btn {
-        margin-left: 0.25rem;     /* small gap between Edit/Delete */
+        margin-left: 0.25rem;
     }
 }
