@@ -101,19 +101,19 @@ def init_db():
         conn.commit()
 
     # Default users (same SQL for both; placeholders are converted for Postgres)
-    try:
-        conn.execute(
-            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-            ("admin", "admin123", "admin"),
-        )
-        conn.execute(
-            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-            ("user", "user123", "user"),
-        )
-        conn.commit()
-    except Exception:
-        # Likely "unique constraint" once users already exist
-        pass
+    # try:
+    #     conn.execute(
+    #         "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+    #         ("admin", "admin123", "admin"),
+    #     )
+    #     conn.execute(
+    #         "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+    #         ("user", "user123", "user"),
+    #     )
+    #     conn.commit()
+    # except Exception:
+    #     # Likely "unique constraint" once users already exist
+    #     pass
 
     conn.close()
 
@@ -136,6 +136,7 @@ def _normalize_genre(subjects, title=None, description=None):
     # Controlled genre set we care about
     GENRES = [
         "Crime",
+        "Comedy",
         "Thriller",
         "Fantasy",
         "Science Fiction",
@@ -151,6 +152,7 @@ def _normalize_genre(subjects, title=None, description=None):
         "Business",
         "Literary Fiction",
         "Non-Fiction",
+        "Anthology",
     ]
 
     title = (title or "").lower()
