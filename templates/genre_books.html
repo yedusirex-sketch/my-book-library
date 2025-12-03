@@ -28,10 +28,10 @@
                     <thead>
                     <tr>
                         <th class="cover-col">Cover</th>
-                        <th>ISBN</th>
                         <th>Title</th>
                         <th>Author(s)</th>
                         <th>Genre</th>
+                        <th>ISBN</th>
                         <th>Added</th>
                         {% if session.get("role") == "admin" %}
                             <th class="actions-cell"></th>
@@ -49,13 +49,13 @@
                                     <div class="cover-placeholder">No cover</div>
                                 {% endif %}
                             </td>
-                            <td>{{ book["isbn"] }}</td>
                             <td>{{ book["title"] }}</td>
                             <td>{{ book["author"] }}</td>
                             <td>
                                 {% set g = book["genre"] or "Uncategorized" %}
                                 <span class="genre-badge" data-genre="{{ g }}">{{ g }}</span>
                             </td>
+                            <td>{{ book["isbn"] }}</td>
                             <td>{{ book["added_at"] }}</td>
 
                             {% if session.get("role") == "admin" %}
