@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Book</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+<div class="container">
+    <div class="card">
+        <h1>Edit Book</h1>
+
+        <form method="POST">
+            <label>
+                Title
+                <input type="text" name="title" value="{{ book['title'] }}" required>
+            </label>
+
+            <label>
+                Author
+                <input type="text" name="author" value="{{ book['author'] }}" required>
+            </label>
+
+            <label>
+                Genre
+                <select name="genre" required>
+                    {% for g in GENRES %}
+                        <option value="{{ g }}"
+                                {% if g == book['genre'] %}selected{% endif %}>
+                            {{ g }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </label>
+
+            <div class="button-row">
+                <button type="submit">💾 Save</button>
+                <a class="btn btn-secondary" href="/books">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

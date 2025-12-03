@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Books</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <div class="page-header">
+            <div>
+                <h1>My Books</h1>
+                <p class="muted">
+                    Search your library by title, author, or ISBN.
+                </p>
+            </div>
+            <div class="page-actions">
+                <a class="btn" href="/add">➕ Add a Book</a>
+                <a class="btn btn-secondary" href="/">🏠 Home</a>
+                <a class="btn btn-secondary" href="/logout">🚪 Logout</a>
+            </div>
+        </div>
+
+        <form class="search-form" method="GET" action="/books">
+            <label>
+                Search
+                <input
+                    type="search"
+                    name="q"
+                    placeholder="Eg. Murakami, 9780143127741..."
+                    value="{{ query or '' }}">
+            </label>
+            <div class="button-row">
+                <button type="submit">Search</button>
+                <a class="btn btn-secondary" href="/books">Clear</a>
+            </div>
+        </form>
+
+        <div class="table-wrapper section-spacer">
+            {% if books %}
+                <table>
+                    <thead>
+                    <tr>
+                        <th class="cover-col">Cover</th>
+                        <th>ISBN</th>
+                        <th>Title</th>
+                        <th>Author(s)</th>
+                        <th>Genre</th>
+                        <th>Added</th>
+                        {% if session.get("role") == "admin" %}
+                            <th class="actions-cell"></th>
+                        {% endif %}
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for book in books %}
+                        <tr>
+                            <td class="cover-col">
+                                {% if book["cover_url"] %}
+                                    <img src="{{ book['cover_url'] }}" alt="Cover"
+                                         class="book-cover">
+                                {% else %}
+                                    <div class="cover-placeholder">No cover</div>
+                                {% endif %}
+                            </td>
+                            <td>{{ book["isbn"] }}</td>
+                            <td>{{ book["title"] }}</td>
+                            <td>{{ book["author"] }}</td>
+                            <td>
+                                {% set g = book["genre"] or "Uncategorized" %}
+                                <span class="genre-badge" data-genre="{{ g }}">{{ g }}</span>
+                            </td>
+                            <td>{{ book["added_at"] }}</td>
+
+                            {% if session.get("role") == "admin" %}
+                                <td class="actions-cell">
+                                    <a class="btn btn-small btn-edit" href="/edit/{{ book['id'] }}">✏️ Edit</a>
+                                    <form method="POST" action="/delete/{{ book['id'] }}"
+                                          onsubmit="return confirm('Delete this book?');">
+                                        <button class="btn btn-danger btn-sm" type="submit">
+                                            🗑 Delete
+                                        </button>
+                                    </form>
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="muted">No books found yet. Try adding one!</p>
+            {% endif %}
+
+            {% if total_pages > 1 %}
+            <div class="pagination-bar">
+                {% if page > 1 %}
+                    <a class="pagination-btn" href="?q={{ query }}&page={{ page - 1 }}">← Prev</a>
+                {% else %}
+                    <span class="pagination-btn disabled">← Prev</span>
+                {% endif %}
+
+                <span class="pagination-info">
+                    Page {{ page }} of {{ total_pages }}
+                </span>
+
+                {% if page < total_pages %}
+                    <a class="pagination-btn" href="?q={{ query }}&page={{ page + 1 }}">Next →</a>
+                {% else %}
+                    <span class="pagination-btn disabled">Next →</span>
+                {% endif %}
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+</body>
+</html>

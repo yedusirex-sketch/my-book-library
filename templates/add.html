@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Book</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <h1>Add a Book</h1>
+        <p class="muted">
+            Enter the ISBN or scan the barcode with your phone camera.
+            You'll confirm the title and author before saving.
+        </p>
+
+        <form method="POST" id="add-form">
+            <label>
+                ISBN
+                <input type="text" name="isbn" required
+                       placeholder="9780143127741">
+            </label>
+
+            <label>
+                Genre
+                <input type="text" name="genre"
+                       placeholder="Eg. Crime, Fantasy, Lit Fic">
+            </label>
+
+            <!-- Hidden fields to carry confirmed data to backend -->
+            <input type="hidden" name="title">
+            <input type="hidden" name="author">
+            <input type="hidden" name="cover_url">
+
+            <div class="button-row" style="margin-top: 0.25rem;">
+                <button type="submit">Preview &amp; Add</button>
+                <button type="button" class="btn btn-secondary" id="scan-btn">
+                    📷 Scan barcode
+                </button>
+            </div>
+        </form>
+
+        <p style="margin-top:1rem;">
+            <a class="btn btn-secondary" href="/books">📚 View My Books</a>
+            &nbsp;
+            <a class="btn btn-secondary" href="/">🏠 Home</a>
+            <a class="btn btn-danger" href="/logout">🚪 Logout</a>
+        </p>
+    </div>
+</div>
+
+<!-- Scanner overlay -->
+<div class="scanner-overlay" id="scanner-overlay">
+    <div class="scanner-card">
+        <div class="scanner-header">
+            <div class="scanner-title">Scan ISBN barcode</div>
+            <button type="button" class="scanner-close-btn" id="close-scan-btn">
+                ✕ Close
+            </button>
+        </div>
+        <p class="scanner-instruction">
+            Point your camera at the barcode on the back of the book.
+        </p>
+        <video id="scanner-video" playsinline></video>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const form = document.getElementById("add-form");
+        const isbnInput = form.querySelector('input[name="isbn"]');
+        const genreInput = form.querySelector('input[name="genre"]');
+        const titleInput = form.querySelector('input[name="title"]');
+        const authorInput = form.querySelector('input[name="author"]');
+        const coverInput = form.querySelector('input[name="cover_url"]');
+
+        const scanBtn = document.getElementById("scan-btn");
+        const overlay = document.getElementById("scanner-overlay");
+        const video = document.getElementById("scanner-video");
+        const closeScanBtn = document.getElementById("close-scan-btn");
+
+        let currentStream = null;
+        let scanning = false;
+        let barcodeDetector = null;
+
+        async function saveBook() {
+            const formData = new FormData(form);
+            const resp = await fetch("/add", {
+                method: "POST",
+                body: formData
+            });
+
+            if (!resp.ok) {
+                let msg = "Something went wrong.";
+                try {
+                    const errData = await resp.json();
+                    if (errData && errData.error) {
+                        msg = errData.error;
+                    }
+                } catch (e) {
+                    // ignore JSON parse error
+                }
+                alert(msg);
+                return;
+            }
+
+            // Stay on this page, clear fields
+            alert("Book added successfully!");
+
+            isbnInput.value = "";
+            // keep genre so you can add many of same genre quickly
+            // genreInput.value stays as-is
+            titleInput.value = "";
+            authorInput.value = "";
+            coverInput.value = "";
+
+            isbnInput.focus();
+        }
+
+        /* ---------- Preview-confirm + add flow ---------- */
+        form.addEventListener("submit", async function (event) {
+            event.preventDefault();  // stop normal submit
+
+            const isbn = isbnInput.value.trim();
+            if (!isbn) {
+                alert("Please enter an ISBN.");
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/api/preview_book?isbn=${encodeURIComponent(isbn)}`);
+                const data = await resp.json();
+
+                if (!resp.ok || data.error) {
+                    alert(data.error || "Error fetching book information.");
+                    return;
+                }
+
+                let title = data.title || "Unknown title";
+                let author = data.author || "Unknown author";
+
+                const message =
+                    "Add this book?\n\n" +
+                    "Title: " + title + "\n" +
+                    "Author: " + author + "\n" +
+                    "ISBN: " + data.isbn +
+                    "\n\nIf this looks wrong, click Cancel and you'll be able to enter details manually.";
+
+                const ok = window.confirm(message);
+
+                if (ok) {
+                    // Use fetched data
+                    titleInput.value = title;
+                    authorInput.value = author;
+                    coverInput.value = data.cover_url || "";
+                    await saveBook();
+                    return;
+                }
+
+                // User cancelled → offer manual entry
+                const wantManual = window.confirm(
+                    "Do you want to enter the title and author manually for this ISBN?"
+                );
+                if (!wantManual) {
+                    return;
+                }
+
+                let manualTitle = window.prompt("Enter the book title:", title === "Unknown title" ? "" : title);
+                if (!manualTitle) {
+                    alert("Title is required. Book was not added.");
+                    return;
+                }
+
+                let manualAuthor = window.prompt("Enter the author(s):",
+                    author === "Unknown author" ? "" : author);
+                if (!manualAuthor) {
+                    manualAuthor = "Unknown author";
+                }
+
+                titleInput.value = manualTitle;
+                authorInput.value = manualAuthor;
+                coverInput.value = "";  // no cover when overriding manually
+                await saveBook();
+
+            } catch (err) {
+                console.error(err);
+                alert("There was a problem contacting the server.");
+            }
+        });
+
+        /* ---------- Camera + barcode scanning ---------- */
+
+        async function startScanning() {
+            if (!navigator.mediaDevices || !window.BarcodeDetector) {
+                alert(
+                    "Barcode scanning needs a secure (HTTPS) connection.\n\n" +
+                    "On this network address it isn't available, so please either:\n" +
+                    "• Use a separate scanner app and paste the ISBN, or\n" +
+                    "• Access this site via an HTTPS tunnel (e.g. ngrok)."
+                );
+                return;
+            }
+
+            try {
+                barcodeDetector = barcodeDetector || new BarcodeDetector({
+                    formats: ["ean_13", "ean_8", "upc_a", "upc_e"]
+                });
+
+                overlay.style.display = "flex";
+
+                currentStream = await navigator.mediaDevices.getUserMedia({
+                    video: {facingMode: "environment"}
+                });
+                video.srcObject = currentStream;
+                await video.play();
+
+                scanning = true;
+                scanLoop();
+            } catch (err) {
+                console.error(err);
+                alert("Unable to access camera. Check permissions.");
+                stopScanning();
+            }
+        }
+
+        async function scanLoop() {
+            while (scanning) {
+                try {
+                    if (video.readyState === HTMLMediaElement.HAVE_ENOUGH_DATA) {
+                        const barcodes = await barcodeDetector.detect(video);
+                        if (barcodes.length > 0) {
+                            const raw = barcodes[0].rawValue.trim();
+                            const digits = raw.replace(/[^0-9Xx]/g, "");
+
+                            // Basic ISBN sanity check: only accept 10 or 13 characters
+                            if (!(digits.length === 10 || digits.length === 13)) {
+                                console.log("Rejected non-ISBN / partial barcode:", raw);
+                                // keep scanning
+                            } else {
+                                console.log("Detected ISBN:", digits);
+                                isbnInput.value = digits;
+
+                                // Stop scanning and immediately run preview flow
+                                stopScanning();
+                                form.dispatchEvent(new Event("submit", {cancelable: true}));
+                                break;
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error("Error during detection:", err);
+                }
+
+                // small delay to avoid hammering the detector
+                await new Promise(r => setTimeout(r, 200));
+            }
+        }
+
+        function stopScanning() {
+            scanning = false;
+            overlay.style.display = "none";
+            if (currentStream) {
+                currentStream.getTracks().forEach(t => t.stop());
+                currentStream = null;
+            }
+        }
+
+        scanBtn.addEventListener("click", startScanning);
+        closeScanBtn.addEventListener("click", stopScanning);
+        overlay.addEventListener("click", function (e) {
+            if (e.target === overlay) {
+                stopScanning();
+            }
+        });
+    });
+</script>
+</body>
+</html>

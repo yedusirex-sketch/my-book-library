@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login – My Library</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="auth-wrapper">
+    <div class="card auth-card">
+        <h1>Welcome back</h1>
+        <p class="muted">
+            Sign in to manage your book library.
+        </p>
+
+        {% if error %}
+            <div class="alert-error">
+                {{ error }}
+            </div>
+        {% endif %}
+
+        <form method="POST" class="auth-form">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" name="username" autocomplete="username" required>
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" autocomplete="current-password" required>
+            </div>
+
+            <div class="button-row" style="margin-top: .5rem;">
+                <button type="submit">Log in</button>
+            </div>
+
+            <p class="muted" style="margin-top: .75rem; font-size: .8rem;">
+                (Default accounts: <strong>admin/admin123</strong> or <strong>user/user123</strong>)
+            </p>
+        </form>
+    </div>
+</div>
+</body>
+</html>

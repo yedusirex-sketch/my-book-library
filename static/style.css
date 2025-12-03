@@ -1,0 +1,524 @@
+/* --------- Base Reset-ish --------- */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #e5e7eb;
+    color: #111827;
+}
+
+/* --------- Layout --------- */
+.container {
+    max-width: 720px;
+    margin: 1.5rem auto;
+    padding: 0 1rem;
+}
+
+.card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 1.5rem 1.75rem;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.10);
+}
+
+/* --------- Typography --------- */
+h1 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+h2 {
+    margin: 0 0 0.5rem 0;
+}
+
+.muted {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #6b7280;
+}
+
+/* --------- Header row --------- */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+/* --------- Forms --------- */
+form {
+    margin: 0;
+}
+
+.search-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+input[type="text"],
+input[type="search"] {
+    width: 100%;
+    margin-top: 0.25rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    font-size: 0.95rem;
+    outline: none;
+    background-color: #f9fafb;
+}
+
+input[type="text"]:focus,
+input[type="search"]:focus {
+    border-color: #2563eb;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.4);
+}
+
+/* --------- Buttons --------- */
+button,
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.55rem 0.95rem;
+    border-radius: 999px;
+    border: none;
+    background: #2563eb;
+    color: #ffffff;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    gap: 0.35rem;
+    white-space: nowrap;
+}
+
+button:hover,
+.btn:hover {
+    background: #1d4ed8;
+}
+
+.btn-secondary {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.btn-secondary:hover {
+    background: #d1d5db;
+}
+
+/* Row of buttons under forms */
+.button-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+/* --------- Table --------- */
+.table-wrapper {
+    margin-top: 0.5rem;
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+th, td {
+    padding: 0.55rem 0.4rem;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    vertical-align: top;
+}
+
+th {
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b7280;
+    background: #f9fafb;
+}
+
+tbody tr:nth-child(even) {
+    background: #f9fafb;
+}
+
+/* Slight emphasis for title column */
+td:nth-child(2) {
+    font-weight: 500;
+}
+
+/* --------- Utility spacing --------- */
+.section-spacer {
+    margin-top: 1rem;
+}
+
+/* --------- Mobile tweaks --------- */
+@media (max-width: 640px) {
+    .card {
+        padding: 1.25rem 1.25rem;
+    }
+
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .page-actions {
+        justify-content: flex-start;
+    }
+}
+
+/* --------- Scanner overlay --------- */
+.scanner-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.75);
+    display: none; /* shown via JS */
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+}
+
+.scanner-card {
+    background: #0b1120;
+    border-radius: 18px;
+    padding: 1rem;
+    max-width: 420px;
+    width: 90%;
+    color: #e5e7eb;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+}
+
+.scanner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.scanner-title {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.scanner-close-btn {
+    border: none;
+    cursor: pointer;
+    border-radius: 999px;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.8rem;
+    background: #111827;
+    color: #e5e7eb;
+}
+
+.scanner-close-btn:hover {
+    background: #1f2937;
+}
+
+.scanner-instruction {
+    font-size: 0.8rem;
+    color: #9ca3af;
+    margin-bottom: 0.4rem;
+}
+
+#scanner-video {
+    width: 100%;
+    border-radius: 12px;
+    background: #020617;
+}
+
+/* Small / danger buttons */
+.btn-sm {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.8rem;
+}
+
+.btn-danger {
+    background: #dc2626;
+}
+
+.btn-danger:hover {
+    background: #b91c1c;
+}
+
+/* Table actions column */
+.actions-cell {
+    text-align: right;
+    white-space: nowrap;
+}
+
+
+/* --------- Auth page layout --------- */
+.auth-wrapper {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem 1rem;
+}
+
+.auth-card {
+    max-width: 420px;
+    width: 100%;
+}
+
+/* Login form spacing */
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* Error message */
+.alert-error {
+    margin: 0.75rem 0 0.5rem 0;
+    padding: 0.6rem 0.8rem;
+    border-radius: 0.75rem;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-size: 0.85rem;
+}
+
+.cover-col {
+    width: 64px;
+    text-align: center;
+}
+
+.book-cover {
+    width: 44px;
+    height: auto;
+    border-radius: 6px;
+    display: block;
+    margin: 0 auto;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+
+.cover-placeholder {
+    width: 44px;
+    height: 64px;
+    border-radius: 6px;
+    background: #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    color: #9ca3af;
+    margin: 0 auto;
+}
+
+.btn-danger {
+    background: #dc2626;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #b91c1c;
+}
+
+input[type="text"],
+input[type="search"] {
+    width: 100%;
+    margin-top: 0.25rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    font-size: 0.95rem;
+    outline: none;
+    background-color: #f9fafb;
+}
+
+input[type="password"] {
+    width: 100%;
+    margin-top: 0.25rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    font-size: 0.95rem;
+    outline: none;
+    background-color: #f9fafb;
+}
+
+input[type="password"]:focus {
+    border-color: #2563eb;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.4);
+}
+
+
+/* --------- Genre pills on home --------- */
+.genre-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+/* Colors per genre, using data-genre attribute */
+.genre-badge[data-genre="Crime"] {
+    background: #e11d48;
+}
+
+.genre-badge[data-genre="Thriller"] {
+    background: #b91c1c;
+}
+
+.genre-badge[data-genre="Fantasy"] {
+    background: #7c3aed;
+}
+
+.genre-badge[data-genre="Science Fiction"] {
+    background: #2563eb;
+}
+
+.genre-badge[data-genre="Horror"] {
+    background: #111827;
+}
+
+.genre-badge[data-genre="Mystery"] {
+    background: #4b5563;
+}
+
+.genre-badge[data-genre="Romance"] {
+    background: #ec4899;
+}
+
+.genre-badge[data-genre="Young Adult"] {
+    background: #10b981;
+}
+
+.genre-badge[data-genre="Poetry"] {
+    background: #6366f1;
+}
+
+.genre-badge[data-genre="Biography"] {
+    background: #06b6d4;
+}
+
+.genre-badge[data-genre="History"] {
+    background: #92400e;
+}
+
+.genre-badge[data-genre="Philosophy"] {
+    background: #4b5563;
+}
+
+.genre-badge[data-genre="Self-Help"] {
+    background: #facc15;
+    color: #111827;
+}
+
+.genre-badge[data-genre="Business"] {
+    background: #0284c7;
+}
+
+.genre-badge[data-genre="Literary Fiction"] {
+    background: #9ca3af;
+}
+
+.genre-badge[data-genre="Non-Fiction"] {
+    background: #22c55e;
+}
+
+.genre-badge[data-genre="Uncategorized"] {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+/* --------- Genre pills on home --------- */
+.genre-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+}
+
+.genre-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 0.85rem;
+    text-decoration: none;
+    border: 1px solid #dbeafe;
+}
+
+.genre-pill:hover {
+    background: #dbeafe;
+}
+
+.genre-name {
+    font-weight: 500;
+}
+
+.genre-count {
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: #1d4ed8;
+    color: #ffffff;
+    font-size: 0.75rem;
+}
+
+/* Pagination */
+.pagination-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding: 1rem 0;
+}
+
+.pagination-btn {
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    background: #e5e7eb;
+    color: #111827;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.pagination-btn:hover {
+    background: #d1d5db;
+}
+
+.pagination-btn.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.pagination-info {
+    font-size: 0.9rem;
+    color: #6b7280;
+}

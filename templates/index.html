@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Library</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <div class="page-header">
+            <div>
+                <h1>My Library</h1>
+                <p class="muted">
+                    Track the books you own, by ISBN and genre.
+                </p>
+            </div>
+            <div class="page-actions">
+                <a class="btn" href="/add">➕ Add a Book</a>
+                <a class="btn btn-secondary" href="/books">📚 All Books</a>
+                <a class="btn btn-secondary" href="/logout">🚪 Logout</a>
+            </div>
+        </div>
+
+        <div class="section-spacer">
+            <h2 style="margin-bottom:0.25rem;">Library snapshot</h2>
+            <p class="muted">
+                You currently have
+                <strong>{{ total_books }}</strong>
+                book{{ '' if total_books == 1 else 's' }} in your library.
+            </p>
+        </div>
+
+        <div class="section-spacer">
+            <h2 style="margin-bottom:0.35rem;">Browse by genre</h2>
+
+            {% if genre_stats %}
+                <div class="genre-list">
+                    {% for g in genre_stats %}
+                        <a class="genre-pill"
+                           href="{{ url_for('books_by_genre', genre_label=g['genre_label']) }}">
+                            <span class="genre-name">{{ g["genre_label"] }}</span>
+                            <span class="genre-count">{{ g["count"] }}</span>
+                        </a>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="muted">No books yet – add your first one!</p>
+            {% endif %}
+        </div>
+        <div class="section-spacer">
+            <h2 style="margin-bottom:0.35rem;">Browse by author</h2>
+
+            {% if author_stats %}
+                <div class="genre-list">
+                    {% for a in author_stats %}
+                        <a class="genre-pill"
+                           href="{{ url_for('books_by_author', author_name=a['author']) }}">
+                            <span class="genre-name">{{ a["author"] }}</span>
+                            <span class="genre-count">{{ a["count"] }}</span>
+                        </a>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="muted">No authors found.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+</body>
+</html>
