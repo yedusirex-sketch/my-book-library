@@ -170,6 +170,8 @@ def _normalize_genre(subjects, title=None, description=None):
     # Prioritised rules
     if has("crime", "detective", "police", "noir", "murder"):
         return "Crime"
+    if has("comedy", "humor", "humour", "comedic", "satire", "parody"):
+        return "Comedy"
     if has("thriller", "suspense", "conspiracy"):
         return "Thriller"
     if has("fantasy", "magic", "dragon", "wizard", "mythical"):
@@ -196,6 +198,8 @@ def _normalize_genre(subjects, title=None, description=None):
         return "Self-Help"
     if has("business", "management", "leadership", "entrepreneur", "economics"):
         return "Business"
+    if has("anthology", "collection", "short stories", "compiled"):
+        return "Anthology"
 
     # If it's fiction but we couldn't classify → Literary Fiction
     if has("fiction"):
@@ -647,10 +651,11 @@ def edit_book(book_id):
 
     # Full genre list for dropdown
     GENRES = [
-        "Crime", "Thriller", "Fantasy", "Science Fiction", "Horror",
+        "Crime", "Comedy", "Thriller", "Fantasy", "Science Fiction", "Horror",
         "Mystery", "Romance", "Young Adult", "Poetry", "Biography",
         "History", "Philosophy", "Self-Help", "Business",
-        "Literary Fiction", "Non-Fiction", "Uncategorized"
+        "Literary Fiction", "Non-Fiction", "Uncategorized",
+        "Anthology"
     ]
 
     return render_template("edit_book.html", book=book, GENRES=GENRES)
