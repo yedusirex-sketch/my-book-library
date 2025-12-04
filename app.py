@@ -501,7 +501,6 @@ def add_book():
     return render_template("add.html")
 
 
-
 @app.route("/books")
 @require_login
 def books():
@@ -524,19 +523,36 @@ def books():
     if q:
         like = f"%{q}%"
 
-        total_row = conn.execute("""
-            SELECT COUNT(*) AS c
-            FROM books
-            WHERE title LIKE ? OR author LIKE ? OR isbn LIKE ?
-        """, (like, like, like)).fetchone()
+        # Use ILIKE for Postgres (case-insensitive), LIKE for SQLite
+        if USE_POSTGRES:
+            total_row = conn.execute("""
+                SELECT COUNT(*) AS c
+                FROM books
+                WHERE title ILIKE ? OR author ILIKE ? OR isbn ILIKE ?
+            """, (like, like, like)).fetchone()
 
-        rows = conn.execute("""
-            SELECT *
-            FROM books
-            WHERE title LIKE ? OR author LIKE ? OR isbn LIKE ?
-            ORDER BY added_at DESC
-            LIMIT ? OFFSET ?
-        """, (like, like, like, PER_PAGE, offset)).fetchall()
+            rows = conn.execute("""
+                SELECT *
+                FROM books
+                WHERE title ILIKE ? OR author ILIKE ? OR isbn ILIKE ?
+                ORDER BY added_at DESC
+                LIMIT ? OFFSET ?
+            """, (like, like, like, PER_PAGE, offset)).fetchall()
+        else:
+            # SQLite LIKE is already case-insensitive, but we can use LOWER() for consistency
+            total_row = conn.execute("""
+                SELECT COUNT(*) AS c
+                FROM books
+                WHERE LOWER(title) LIKE LOWER(?) OR LOWER(author) LIKE LOWER(?) OR LOWER(isbn) LIKE LOWER(?)
+            """, (like, like, like)).fetchone()
+
+            rows = conn.execute("""
+                SELECT *
+                FROM books
+                WHERE LOWER(title) LIKE LOWER(?) OR LOWER(author) LIKE LOWER(?) OR LOWER(isbn) LIKE LOWER(?)
+                ORDER BY added_at DESC
+                LIMIT ? OFFSET ?
+            """, (like, like, like, PER_PAGE, offset)).fetchall()
 
     else:
         total_row = conn.execute("SELECT COUNT(*) AS c FROM books").fetchone()
