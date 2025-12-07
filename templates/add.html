@@ -84,6 +84,7 @@
         let barcodeDetector = null;
 
         async function saveBook() {
+            console.time("saveBook");
             const formData = new FormData(form);
             const resp = await fetch("/add", {
                 method: "POST",

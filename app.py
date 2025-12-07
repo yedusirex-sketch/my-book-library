@@ -5,9 +5,12 @@ import requests
 import psycopg2
 import psycopg2.extras
 from datetime import timedelta
+import time
 
 app = Flask(__name__)
 app.secret_key = "wrwrwsrjwsoj394ew309i4[9"
+
+API_TIMEOUT = 2.0  # seconds, tweak as you like
 
 app.permanent_session_lifetime = timedelta(days=30)
 
@@ -231,7 +234,7 @@ def _fetch_from_openlibrary(isbn: str):
             "format": "json",
             "jscmd": "data",
         }
-        resp = requests.get(url, params=params, timeout=5)
+        resp = requests.get(url, params=params, timeout=API_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
         key = f"ISBN:{isbn}"
@@ -272,7 +275,7 @@ def _fetch_from_googlebooks(isbn: str):
     try:
         url = "https://www.googleapis.com/books/v1/volumes"
         params = {"q": f"isbn:{isbn}"}
-        resp = requests.get(url, params=params, timeout=5)
+        resp = requests.get(url, params=params, timeout=API_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
 
@@ -319,7 +322,7 @@ def fetch_cover_by_title_author(title: str, author: str | None = None):
             "q": q,
             "maxResults": 5,
         }
-        resp = requests.get(url, params=params, timeout=5)
+        resp = requests.get(url, params=params, timeout=API_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
 
@@ -354,23 +357,47 @@ def normalize_author_name(name: str) -> str:
 
     return name
 
+def get_book_from_db_by_isbn(isbn: str):
+    conn = get_db_connection()
+    row = conn.execute(
+        "SELECT title, author, cover_url, genre FROM books WHERE isbn = ?",
+        (isbn,)
+    ).fetchone()
+    conn.close()
+
+    if not row:
+        return None
+
+    return {
+        "title": row["title"],
+        "author": row["author"],
+        "cover_url": row["cover_url"],
+        "genre": row["genre"],
+    }
 
 def fetch_book_info(isbn: str):
     """
-    Fetch book title, author, cover, and genre using:
-    1. Open Library (primary, richer subjects)
-    2. Google Books (fallback)
-    Then infer a short genre label from subjects/title/description.
+    Fetch book title, author, cover, and genre.
 
-    Returns (title, author, cover_url, genre).
+    0. Check local DB (cache) first.
+    1. Then external APIs if needed.
     """
+
+    # 0) Local DB cache
+    cached = get_book_from_db_by_isbn(isbn)
+    if cached:
+        return (
+            cached["title"] or "Unknown title",
+            cached["author"] or "Unknown author",
+            cached["cover_url"],
+            cached["genre"],
+        )
+
+    # 1) External APIs
     meta = _fetch_from_openlibrary(isbn)
 
     if not meta:
         meta = _fetch_from_googlebooks(isbn)
-    else:
-        # We still might want to PATCH missing pieces from Google later if needed
-        pass
 
     if not meta:
         # Nothing found anywhere
@@ -464,25 +491,15 @@ def add_book():
         if not isbn:
             return jsonify({"error": "ISBN is required"}), 400
 
-        # If we somehow didn't get these from preview, fetch again
-        if not title or not author or not cover_url or not genre:
-            t, a, c, g = fetch_book_info(isbn)
-            if not title:
-                title = t
-            if not author:
-                author = a
-            if not cover_url:
-                cover_url = c or ""
-            if not genre:
-                genre = g or ""
+        # If we get here without title/author, something's wrong with frontend
+        if not title or not author:
+            return jsonify({"error": "Missing title/author in request"}), 400
 
-        # If we still don't have a cover but we DO have title + author
-        # (e.g. manual entry), try to fetch cover using title+author search.
+        # Optional: still try to fetch a cover if we have none, but don't block too long.
         if (not cover_url) and title and author:
             alt_cover = fetch_cover_by_title_author(title, author)
             if alt_cover:
                 cover_url = alt_cover
-
 
         conn = get_db_connection()
         try:
@@ -627,12 +644,15 @@ def books_by_genre(genre_label):
 @app.route("/api/preview_book")
 @require_login
 def api_preview_book():
-    """Return title, author, cover, genre for an ISBN without saving to DB."""
+    start = time.time()
     isbn = (request.args.get("isbn") or "").strip()
     if not isbn:
         return jsonify({"error": "ISBN is required"}), 400
 
     title, author, cover_url, genre = fetch_book_info(isbn)
+    elapsed = time.time() - start
+    print(f"/api/preview_book for {isbn} took {elapsed:.2f}s")
+
     return jsonify({
         "isbn": isbn,
         "title": title,
@@ -640,6 +660,7 @@ def api_preview_book():
         "cover_url": cover_url,
         "genre": genre,
     })
+
 
 
 @app.route("/edit/<int:book_id>", methods=["GET", "POST"])
