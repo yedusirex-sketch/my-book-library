@@ -149,10 +149,15 @@
                 const ok = window.confirm(message);
 
                 if (ok) {
-                    // Use fetched data
                     titleInput.value = title;
                     authorInput.value = author;
                     coverInput.value = data.cover_url || "";
+
+                    // NEW: use genre from preview if user hasn't typed one
+                    if (!genreInput.value.trim() && data.genre) {
+                        genreInput.value = data.genre;
+                    }
+
                     await saveBook();
                     return;
                 }

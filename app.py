@@ -495,6 +495,14 @@ def add_book():
         if not title or not author:
             return jsonify({"error": "Missing title/author in request"}), 400
 
+        # If genre is still blank, try to infer it.
+        # For existing books this just reads from DB (cached),
+        # for new ones it may hit APIs once more.
+        if not genre:
+            _, _, _, g = fetch_book_info(isbn)
+            if g:
+                genre = g
+
         # Optional: still try to fetch a cover if we have none, but don't block too long.
         if (not cover_url) and title and author:
             alt_cover = fetch_cover_by_title_author(title, author)
