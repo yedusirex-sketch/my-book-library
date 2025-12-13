@@ -101,12 +101,14 @@ def init_db():
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS books (
                     id SERIAL PRIMARY KEY,
-                    isbn TEXT UNIQUE,
+                    isbn TEXT,
                     title TEXT,
                     author TEXT,
                     cover_url TEXT,
                     genre TEXT,
-                    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    user_id INTEGER NOT NULL,
+                    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
             """)
             conn.execute("""
@@ -118,11 +120,12 @@ def init_db():
                 )
             """)
 
-            # FIX #2: Add indexes for better performance
+            # Add indexes
             conn.execute("CREATE INDEX IF NOT EXISTS idx_books_isbn ON books(isbn)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_books_genre ON books(genre)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_books_author ON books(author)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_books_added_at ON books(added_at DESC)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_books_user_id ON books(user_id)")
 
             conn.commit()
         else:
@@ -130,12 +133,14 @@ def init_db():
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS books (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    isbn TEXT UNIQUE,
+                    isbn TEXT,
                     title TEXT,
                     author TEXT,
                     cover_url TEXT,
                     genre TEXT,
-                    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    user_id INTEGER NOT NULL,
+                    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
             """)
             conn.execute("""
@@ -147,11 +152,12 @@ def init_db():
                 )
             """)
 
-            # FIX #2: Add indexes for SQLite
+            # Add indexes
             conn.execute("CREATE INDEX IF NOT EXISTS idx_books_isbn ON books(isbn)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_books_genre ON books(genre)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_books_author ON books(author)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_books_added_at ON books(added_at DESC)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_books_user_id ON books(user_id)")
 
             conn.commit()
 
@@ -398,10 +404,14 @@ def normalize_author_name(name: str) -> str:
 
 
 def get_book_from_db_by_isbn(isbn: str):
+    user_id = session.get("user_id")  # ADD THIS LINE
+    if not user_id:
+        return None
+
     with get_db_connection() as conn:
         row = conn.execute(
-            "SELECT title, author, cover_url, genre FROM books WHERE isbn = ?",
-            (isbn,)
+            "SELECT title, author, cover_url, genre FROM books WHERE isbn = ? AND user_id = ?",
+            (isbn, user_id)  # ADD user_id FILTER
         ).fetchone()
 
         if not row:
@@ -489,6 +499,7 @@ def login():
                 if user:
                     session.permanent = True
                     session["user"] = user["username"]
+                    session["user_id"] = user["id"]  # ADD THIS LINE
                     session["role"] = user["role"]
                     logger.info(f"User {username} logged in successfully")
                     return redirect(url_for("index"))
@@ -506,30 +517,37 @@ def login():
 @require_login
 def index():
     try:
+        user_id = session.get("user_id")  # ADD THIS LINE
+
         with get_db_connection() as conn:
-            # Total books
-            total_row = conn.execute("SELECT COUNT(*) AS c FROM books").fetchone()
+            # Total books for this user
+            total_row = conn.execute(
+                "SELECT COUNT(*) AS c FROM books WHERE user_id = ?",
+                (user_id,)  # ADD FILTER
+            ).fetchone()
             total_books = total_row["c"] if total_row else 0
 
-            # Genres + counts
+            # Genres + counts for this user
             genre_rows = conn.execute("""
                 SELECT
                     COALESCE(NULLIF(TRIM(genre), ''), 'Uncategorized') AS genre_label,
                     COUNT(*) AS count
                 FROM books
+                WHERE user_id = ?
                 GROUP BY genre_label
                 ORDER BY count DESC, genre_label ASC
-            """).fetchall()
+            """, (user_id,)).fetchall()  # ADD FILTER
 
-            # Authors + counts
+            # Authors + counts for this user
             author_rows = conn.execute("""
                 SELECT
                     author,
                     COUNT(*) AS count
                 FROM books
+                WHERE user_id = ?
                 GROUP BY author
                 ORDER BY count DESC, author ASC
-            """).fetchall()
+            """, (user_id,)).fetchall()  # ADD FILTER
 
             return render_template(
                 "index.html",
@@ -546,6 +564,7 @@ def index():
 @require_login
 def add_book():
     if request.method == "POST":
+        user_id = session.get("user_id")  # ADD THIS LINE
         isbn = (request.form.get("isbn") or "").strip()
         title = (request.form.get("title") or "").strip()
         author = (request.form.get("author") or "").strip()
@@ -555,7 +574,6 @@ def add_book():
         if not isbn:
             return jsonify({"error": "ISBN is required"}), 400
 
-        # If we get here without title/author, something's wrong with frontend
         if not title or not author:
             return jsonify({"error": "Missing title/author in request"}), 400
 
@@ -580,11 +598,11 @@ def add_book():
         try:
             with get_db_connection() as conn:
                 conn.execute(
-                    "INSERT INTO books (isbn, title, author, cover_url, genre) VALUES (?, ?, ?, ?, ?)",
-                    (isbn, title, author, cover_url, genre),
+                    "INSERT INTO books (isbn, title, author, cover_url, genre, user_id) VALUES (?, ?, ?, ?, ?, ?)",
+                    (isbn, title, author, cover_url, genre, user_id),  # ADD user_id
                 )
                 conn.commit()
-                logger.info(f"Added book: {title} (ISBN: {isbn})")
+                logger.info(f"Added book: {title} (ISBN: {isbn}) for user {user_id}")
             return jsonify({"ok": True}), 200
         except (sqlite3.IntegrityError, psycopg2.IntegrityError):
             logger.warning(f"Duplicate ISBN attempt: {isbn}")
@@ -600,6 +618,7 @@ def add_book():
 @require_login
 def books():
     """List and search books with pagination."""
+    user_id = session.get("user_id")  # ADD THIS LINE
     q = (request.args.get("q") or "").strip()
 
     # Pagination
@@ -618,45 +637,48 @@ def books():
             if q:
                 like = f"%{q}%"
 
-                # Use ILIKE for Postgres (case-insensitive), LIKE for SQLite
                 if USE_POSTGRES:
                     total_row = conn.execute("""
                         SELECT COUNT(*) AS c
                         FROM books
-                        WHERE title ILIKE ? OR author ILIKE ? OR isbn ILIKE ?
-                    """, (like, like, like)).fetchone()
+                        WHERE user_id = ? AND (title ILIKE ? OR author ILIKE ? OR isbn ILIKE ?)
+                    """, (user_id, like, like, like)).fetchone()  # ADD user_id FILTER
 
                     rows = conn.execute("""
                         SELECT *
                         FROM books
-                        WHERE title ILIKE ? OR author ILIKE ? OR isbn ILIKE ?
+                        WHERE user_id = ? AND (title ILIKE ? OR author ILIKE ? OR isbn ILIKE ?)
                         ORDER BY added_at DESC
                         LIMIT ? OFFSET ?
-                    """, (like, like, like, PER_PAGE, offset)).fetchall()
+                    """, (user_id, like, like, like, PER_PAGE, offset)).fetchall()  # ADD user_id FILTER
                 else:
                     total_row = conn.execute("""
                         SELECT COUNT(*) AS c
                         FROM books
-                        WHERE LOWER(title) LIKE LOWER(?) OR LOWER(author) LIKE LOWER(?) OR LOWER(isbn) LIKE LOWER(?)
-                    """, (like, like, like)).fetchone()
+                        WHERE user_id = ? AND (LOWER(title) LIKE LOWER(?) OR LOWER(author) LIKE LOWER(?) OR LOWER(isbn) LIKE LOWER(?))
+                    """, (user_id, like, like, like)).fetchone()  # ADD user_id FILTER
 
                     rows = conn.execute("""
                         SELECT *
                         FROM books
-                        WHERE LOWER(title) LIKE LOWER(?) OR LOWER(author) LIKE LOWER(?) OR LOWER(isbn) LIKE LOWER(?)
+                        WHERE user_id = ? AND (LOWER(title) LIKE LOWER(?) OR LOWER(author) LIKE LOWER(?) OR LOWER(isbn) LIKE LOWER(?))
                         ORDER BY added_at DESC
                         LIMIT ? OFFSET ?
-                    """, (like, like, like, PER_PAGE, offset)).fetchall()
+                    """, (user_id, like, like, like, PER_PAGE, offset)).fetchall()  # ADD user_id FILTER
 
             else:
-                total_row = conn.execute("SELECT COUNT(*) AS c FROM books").fetchone()
+                total_row = conn.execute(
+                    "SELECT COUNT(*) AS c FROM books WHERE user_id = ?",
+                    (user_id,)  # ADD FILTER
+                ).fetchone()
 
                 rows = conn.execute("""
                     SELECT *
                     FROM books
+                    WHERE user_id = ?
                     ORDER BY added_at DESC
                     LIMIT ? OFFSET ?
-                """, (PER_PAGE, offset)).fetchall()
+                """, (user_id, PER_PAGE, offset)).fetchall()  # ADD FILTER
 
             total_books = total_row["c"]
             total_pages = max((total_books + PER_PAGE - 1) // PER_PAGE, 1)
@@ -678,6 +700,8 @@ def books():
 @require_login
 def books_by_genre(genre_label):
     """Show all books for a given genre with pagination."""
+    user_id = session.get("user_id")  # ADD THIS LINE
+
     try:
         page = int(request.args.get("page", 1))
         if page < 1:
@@ -693,16 +717,16 @@ def books_by_genre(genre_label):
             total_row = conn.execute("""
                 SELECT COUNT(*) AS c
                 FROM books
-                WHERE COALESCE(NULLIF(TRIM(genre), ''), 'Uncategorized') = ?
-            """, (genre_label,)).fetchone()
+                WHERE user_id = ? AND COALESCE(NULLIF(TRIM(genre), ''), 'Uncategorized') = ?
+            """, (user_id, genre_label)).fetchone()  # ADD user_id FILTER
 
             rows = conn.execute("""
                 SELECT *
                 FROM books
-                WHERE COALESCE(NULLIF(TRIM(genre), ''), 'Uncategorized') = ?
+                WHERE user_id = ? AND COALESCE(NULLIF(TRIM(genre), ''), 'Uncategorized') = ?
                 ORDER BY added_at DESC
                 LIMIT ? OFFSET ?
-            """, (genre_label, PER_PAGE, offset)).fetchall()
+            """, (user_id, genre_label, PER_PAGE, offset)).fetchall()  # ADD user_id FILTER
 
             total_books = total_row["c"]
             total_pages = max((total_books + PER_PAGE - 1) // PER_PAGE, 1)
@@ -748,8 +772,20 @@ def api_preview_book():
 @app.route("/edit/<int:book_id>", methods=["GET", "POST"])
 @require_login
 def edit_book(book_id):
+    user_id = session.get("user_id")  # ADD THIS LINE
+
     try:
         with get_db_connection() as conn:
+            # Check ownership
+            book = conn.execute(
+                "SELECT * FROM books WHERE id=? AND user_id=?",
+                (book_id, user_id)  # ADD user_id CHECK
+            ).fetchone()
+
+            if not book:
+                logger.warning(f"User {user_id} attempted to edit book {book_id} they don't own")
+                return "Book not found or you don't have permission to edit it", 403
+
             if request.method == "POST":
                 title = request.form.get("title", "").strip()
                 author = request.form.get("author", "").strip()
@@ -758,16 +794,13 @@ def edit_book(book_id):
                 conn.execute("""
                     UPDATE books 
                     SET title=?, author=?, genre=?
-                    WHERE id=?
-                """, (title, author, genre, book_id))
+                    WHERE id=? AND user_id=?
+                """, (title, author, genre, book_id, user_id))  # ADD user_id CHECK
                 conn.commit()
-                logger.info(f"Updated book ID {book_id}")
+                logger.info(f"Updated book ID {book_id} by user {user_id}")
                 return redirect(url_for("books"))
 
             # GET → show the edit form
-            book = conn.execute("SELECT * FROM books WHERE id=?", (book_id,)).fetchone()
-
-            # Full genre list for dropdown
             GENRES = [
                 "Crime", "Comedy", "Thriller", "Fantasy", "Science Fiction", "Horror",
                 "Mystery", "Romance", "Young Adult", "Poetry", "Biography",
@@ -785,15 +818,23 @@ def edit_book(book_id):
 @app.route("/delete/<int:book_id>", methods=["POST"])
 @require_login
 def delete_book(book_id):
-    if session.get("role") != "admin":
-        logger.warning(f"Unauthorized delete attempt by {session.get('user')}")
-        return "Unauthorized", 403
+    user_id = session.get("user_id")  # ADD THIS LINE
 
     try:
         with get_db_connection() as conn:
-            conn.execute("DELETE FROM books WHERE id=?", (book_id,))
+            # Check ownership before deleting
+            book = conn.execute(
+                "SELECT id FROM books WHERE id=? AND user_id=?",
+                (book_id, user_id)
+            ).fetchone()
+
+            if not book:
+                logger.warning(f"User {user_id} attempted to delete book {book_id} they don't own")
+                return "Book not found or you don't have permission to delete it", 403
+
+            conn.execute("DELETE FROM books WHERE id=? AND user_id=?", (book_id, user_id))  # ADD user_id CHECK
             conn.commit()
-            logger.info(f"Deleted book ID {book_id}")
+            logger.info(f"Deleted book ID {book_id} by user {user_id}")
         return redirect(url_for("books"))
     except Exception as e:
         logger.error(f"Error deleting book {book_id}: {e}", exc_info=True)
@@ -804,6 +845,8 @@ def delete_book(book_id):
 @require_login
 def books_by_author(author_name):
     """Show all books for a given author with pagination."""
+    user_id = session.get("user_id")  # ADD THIS LINE
+
     try:
         page = int(request.args.get("page", 1))
         if page < 1:
@@ -819,16 +862,16 @@ def books_by_author(author_name):
             total_row = conn.execute("""
                 SELECT COUNT(*) AS c
                 FROM books
-                WHERE author = ?
-            """, (author_name,)).fetchone()
+                WHERE user_id = ? AND author = ?
+            """, (user_id, author_name)).fetchone()  # ADD user_id FILTER
 
             rows = conn.execute("""
                 SELECT *
                 FROM books
-                WHERE author = ?
+                WHERE user_id = ? AND author = ?
                 ORDER BY added_at DESC
                 LIMIT ? OFFSET ?
-            """, (author_name, PER_PAGE, offset)).fetchall()
+            """, (user_id, author_name, PER_PAGE, offset)).fetchall()  # ADD user_id FILTER
 
             total_books = total_row["c"]
             total_pages = max((total_books + PER_PAGE - 1) // PER_PAGE, 1)
