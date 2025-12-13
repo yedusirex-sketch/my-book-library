@@ -108,7 +108,8 @@ def init_db():
                     genre TEXT,
                     user_id INTEGER NOT NULL,
                     added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    CONSTRAINT fk_books_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    CONSTRAINT books_user_isbn_unique UNIQUE (user_id, isbn)
                 )
             """)
             conn.execute("""
@@ -140,7 +141,8 @@ def init_db():
                     genre TEXT,
                     user_id INTEGER NOT NULL,
                     added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    UNIQUE(user_id, isbn)
                 )
             """)
             conn.execute("""
