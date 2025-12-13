@@ -31,9 +31,7 @@
                         <th>Genre</th>
                         <th>ISBN</th>
                         <th>Added</th>
-                        {% if session.get("role") == "admin" %}
-                            <th class="actions-cell"></th>
-                        {% endif %}
+                        <th class="actions-cell">Actions</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -55,22 +53,19 @@
                             </td>
                             <td>{{ book["isbn"] }}</td>
                             <td>{{ book["added_at"] }}</td>
-
-                            {% if session.get("role") == "admin" %}
-                                <td class="actions-cell">
-                                    <a class="btn btn-small btn-edit"
-                                       href="/edit/{{ book['id'] }}">
-                                        ✏️ Edit
-                                    </a>
-                                    <form method="POST"
-                                          action="/delete/{{ book['id'] }}"
-                                          onsubmit="return confirm('Delete this book?');">
-                                        <button class="btn btn-danger btn-sm" type="submit">
-                                            🗑 Delete
-                                        </button>
-                                    </form>
-                                </td>
-                            {% endif %}
+                            <td class="actions-cell">
+                                <a class="btn btn-small btn-edit"
+                                   href="/edit/{{ book['id'] }}">
+                                    ✏️ Edit
+                                </a>
+                                <form method="POST"
+                                      action="/delete/{{ book['id'] }}"
+                                      onsubmit="return confirm('Delete this book?');" style="display: inline;">
+                                    <button class="btn btn-danger btn-sm" type="submit">
+                                        🗑 Delete
+                                    </button>
+                                </form>
+                            </td>
                         </tr>
                     {% endfor %}
                     </tbody>
@@ -78,29 +73,29 @@
             {% else %}
                 <p class="muted">No books by this author yet.</p>
             {% endif %}
-        </div>
 
-        {% if total_pages > 1 %}
-        <div class="pagination-bar">
-            {% if page > 1 %}
-                <a class="pagination-btn"
-                   href="?page={{ page - 1 }}">← Prev</a>
-            {% else %}
-                <span class="pagination-btn disabled">← Prev</span>
+            {% if total_pages > 1 %}
+            <div class="pagination-bar">
+                {% if page > 1 %}
+                    <a class="pagination-btn"
+                       href="?page={{ page - 1 }}">← Prev</a>
+                {% else %}
+                    <span class="pagination-btn disabled">← Prev</span>
+                {% endif %}
+
+                <span class="pagination-info">
+                    Page {{ page }} of {{ total_pages }}
+                </span>
+
+                {% if page < total_pages %}
+                    <a class="pagination-btn"
+                       href="?page={{ page + 1 }}">Next →</a>
+                {% else %}
+                    <span class="pagination-btn disabled">Next →</span>
+                {% endif %}
+            </div>
             {% endif %}
-
-            <span class="pagination-info">
-                Page {{ page }} of {{ total_pages }}
-            </span>
-
-            {% if page < total_pages %}
-                <a class="pagination-btn"
-                   href="?page={{ page + 1 }}">Next →</a>
-            {% else %}
-                <span class="pagination-btn disabled">Next →</span>
-            {% endif %}
         </div>
-        {% endif %}
     </div>
 </div>
 </body>
